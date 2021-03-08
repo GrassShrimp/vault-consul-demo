@@ -22,16 +22,24 @@ resource "helm_release" "traefik" {
           port: 8080
           exposedPort: 9000
         web:
-          port: 80
+          nodePort: 32080
         websecure:
-          port: 443
+          nodePort: 32443
+      nodeSelector:
+        ingress-ready: "true"
+      tolerations:
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"
       persistence:
         enabled: true
-        storageClass: hostpath
+        storageClass: standard
     EOF
   ]
 
   create_namespace = true
+
+  depends_on = [ kubernetes_config_map.metallb-config ]
 }
 
 resource "null_resource" "ingressroute-dashboard" {

@@ -1,0 +1,75 @@
+- name: Initialize and unseal Vault
+  hosts: localhost
+  tasks:
+  - name: Initialize Vault with one key share and one key threshold
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault operator init -key-shares=1 -key-threshold=1 -format=json > cluster-keys.json
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 10
+  - name: Get pods of vault instance
+    shell: kubectl get pods -n {{ namespace }} | grep -E 'vault-\d' | awk '{print $1}'
+    register: items
+  - name: Unseal Vault running on the pods
+    shell: kubectl exec -n {{ namespace }} {{ item }} -- vault operator unseal $(cat cluster-keys.json | jq -r ".unseal_keys_b64[]")
+    with_items: "{{ items.stdout_lines }}"
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 10
+- name: Set a secret in Vault
+  hosts: localhost
+  tasks:
+  - name: Get root_token
+    shell: cat cluster-keys.json | jq -r .root_token
+    register: root_token
+  - name: Login with the root token
+    shell: kubectl exec -n {{ namespace }} vault-0 -- /bin/sh -c 'echo "{{ root_token.stdout }}" | vault login -'
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 20
+  - name: Enable kv-v2 secrets at the path secret
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault secrets enable -path=secret kv-v2
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 10
+  - name: Create a secret at path secret/webapp/config with a username and password
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault kv put secret/webapp/config username="static-user" password="static-password"
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 10
+- name: Configure Kubernetes authentication
+  hosts: localhost
+  tasks:
+  - name: Enable the Kubernetes authentication method
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault auth enable kubernetes
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 10
+  - name: Configure the Kubernetes authentication method to use the service account token, the location of the Kubernetes host, and its certificate
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault write auth/kubernetes/config token_reviewer_jwt="$(kubectl exec -n {{ namespace }} vault-0 -- cat /var/run/secrets/kubernetes.io/serviceaccount/token)" kubernetes_host="https://$(kubectl exec -n {{ namespace }} vault-0 -- /bin/sh -c 'echo $KUBERNETES_PORT_443_TCP_ADDR'):443" kubernetes_ca_cert=@/var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 10
+  - name: Write out the policy named webapp that enables the read capability for secrets at path secret/data/webapp/config
+    shell: | 
+      kubectl exec -n {{ namespace }} vault-0 -- /bin/sh -c 'vault policy write webapp - <<EOF
+        path "secret/data/webapp/config" {
+          capabilities = ["read"]
+        }
+      EOF'
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 10
+  - name: Create a Kubernetes authentication role, named webapp, that connects the Kubernetes service account name and webapp policy
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault write auth/kubernetes/role/webapp bound_service_account_names=vault bound_service_account_namespaces={{ namespace }} policies=webapp ttl=24h
+    register: result
+    until: result.rc == 0
+    retries: 10
+    delay: 10

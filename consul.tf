@@ -27,4 +27,10 @@ resource "helm_release" "consul" {
   #   when = destroy
   #   command = "kubectl delete persistentvolumeclaims -n ${self.namespace} $(kubectl get persistentvolumeclaims -n ${self.namespace} --no-headers=true | awk '{print $1}')"
   # }
+
+  provisioner "local-exec" {
+    command = "kubectl wait --for=condition=ready --timeout=-1s -n ${self.namespace} pods --all"
+  }
+
+  depends_on = [ kind_cluster.vault-consul ]
 }
