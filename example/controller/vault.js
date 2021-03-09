@@ -9,7 +9,7 @@ class Vault {
   }
 
   async get_secret(ctx, next) {
-    ctx.body = this.content
+    ctx.body = JSON.parse(this.content)
   }
 }
 
