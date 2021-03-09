@@ -1,0 +1,58 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: koa-vault
+  labels:
+    app: koa-vault
+spec:
+  selector:
+    matchLabels:
+      app: koa-vault
+  replicas: 1
+  strategy:
+    rollingUpdate:
+      maxSurge: 25%
+      maxUnavailable: 25%
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app: koa-vault
+    spec:
+      serviceAccount: vault
+      containers:
+      - name: koa-vault
+        image: koa-vault:latest
+        resources:
+          requests:
+            cpu: 100m
+            memory: 100Mi
+          limits:
+            cpu: 100m
+            memory: 100Mi
+        livenessProbe:
+          tcpSocket:
+            port: http
+          initialDelaySeconds: 5
+          timeoutSeconds: 5
+          successThreshold: 1
+          failureThreshold: 3
+          periodSeconds: 10
+        readinessProbe:
+          httpGet:
+            path: /
+            port: http
+          initialDelaySeconds: 5
+          timeoutSeconds: 2
+          successThreshold: 1
+          failureThreshold: 3
+          periodSeconds: 10
+        env:
+        - name: VAULT_ADDR
+          value: "http://vault:8200"
+        - name: JWT_PATH
+          value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
+        ports:
+        - containerPort: 3000
+          name: http
+      restartPolicy: Always

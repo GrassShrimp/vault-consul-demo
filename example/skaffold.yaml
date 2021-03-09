@@ -1,0 +1,13 @@
+apiVersion: skaffold/v2beta12
+kind: Config
+metadata:
+  name: koa-vault
+build:
+  artifacts:
+  - image: koa-vault
+    docker:
+      dockerfile: Dockerfile
+deploy:
+  kustomize:
+    paths:
+    - kustomize
