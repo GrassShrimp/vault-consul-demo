@@ -18,8 +18,12 @@ spec:
     metadata:
       labels:
         app: koa-vault
+      annotations:
+        vault.hashicorp.com/agent-inject: "true"
+        vault.hashicorp.com/role: "internal-app"
+        vault.hashicorp.com/agent-inject-secret-database-config.txt: "internal/data/database/config"
     spec:
-      serviceAccount: vault
+      serviceAccount: internal-app
       containers:
       - name: koa-vault
         image: koa-vault:latest
@@ -47,11 +51,6 @@ spec:
           successThreshold: 1
           failureThreshold: 3
           periodSeconds: 10
-        env:
-        - name: VAULT_ADDR
-          value: "http://vault:8200"
-        - name: JWT_PATH
-          value: "/var/run/secrets/kubernetes.io/serviceaccount/token"
         ports:
         - containerPort: 3000
           name: http

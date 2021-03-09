@@ -1,22 +1,16 @@
 const {vault: config} = require('../config')
 const fs = require('fs')
 
-var options = {
-  apiVersion: 'v1',
-  endpoint: config.addr,
-  token: fs.readFileSync(config.jwt_path, "utf-8")
-}
-
-const vaultLib = require("node-vault")(options);
+let content = fs.readFileSync("/vault/secrets/database-config.txt", "utf-8")
 
 class Vault {
-  constructor(vault_lib){
-    this.vault_lib = vault_lib
+  constructor(content){
+    this.content = content
   }
 
   async get_secret(ctx, next) {
-    ctx.body = await this.vault_lib.read('secret/webapp/config')
+    ctx.body = this.content
   }
 }
 
-module.exports = new Vault(vaultLib)
+module.exports = new Vault(content)

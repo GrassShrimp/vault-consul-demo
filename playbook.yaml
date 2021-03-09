@@ -30,13 +30,13 @@
     retries: 10
     delay: 20
   - name: Enable kv-v2 secrets at the path secret
-    shell: kubectl exec -n {{ namespace }} vault-0 -- vault secrets enable -path=secret kv-v2
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault secrets enable -path=internal kv-v2
     register: result
     until: result.rc == 0
     retries: 10
     delay: 10
-  - name: Create a secret at path secret/webapp/config with a username and password
-    shell: kubectl exec -n {{ namespace }} vault-0 -- vault kv put secret/webapp/config username="static-user" password="static-password"
+  - name: Create a secret at path internal/database/config with a username and password
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault kv put internal/database/config username="db-readonly-username" password="db-secret-password"
     register: result
     until: result.rc == 0
     retries: 10
@@ -56,10 +56,10 @@
     until: result.rc == 0
     retries: 10
     delay: 10
-  - name: Write out the policy named webapp that enables the read capability for secrets at path secret/data/webapp/config
+  - name: Write out the policy named internal-app that enables the read capability for secrets at path internal/data/database/config
     shell: | 
-      kubectl exec -n {{ namespace }} vault-0 -- /bin/sh -c 'vault policy write webapp - <<EOF
-        path "secret/data/webapp/config" {
+      kubectl exec -n {{ namespace }} vault-0 -- /bin/sh -c 'vault policy write internal-app - <<EOF
+        path "internal/data/database/config" {
           capabilities = ["read"]
         }
       EOF'
@@ -67,9 +67,14 @@
     until: result.rc == 0
     retries: 10
     delay: 10
-  - name: Create a Kubernetes authentication role, named webapp, that connects the Kubernetes service account name and webapp policy
-    shell: kubectl exec -n {{ namespace }} vault-0 -- vault write auth/kubernetes/role/webapp bound_service_account_names=vault bound_service_account_namespaces={{ namespace }} policies=webapp ttl=24h
+  - name: Create a Kubernetes authentication role, named internal-app, that connects the Kubernetes service account name and internal-app policy
+    shell: kubectl exec -n {{ namespace }} vault-0 -- vault write auth/kubernetes/role/internal-app bound_service_account_names=internal-app bound_service_account_namespaces={{ namespace }} policies=internal-app ttl=24h
     register: result
     until: result.rc == 0
     retries: 10
     delay: 10
+- name: Define a Kubernetes service account
+  hosts: localhost
+  tasks:
+  - name: Create a service account
+    command: kubectl create serviceaccount internal-app -n {{ namespace }}
