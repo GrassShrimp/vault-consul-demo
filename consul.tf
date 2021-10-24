@@ -32,5 +32,5 @@ resource "helm_release" "consul" {
     command = "kubectl wait --for=condition=ready --timeout=-1s -n ${self.namespace} pods --all"
   }
 
-  depends_on = [ kind_cluster.vault-consul ]
+  depends_on = [ kind_cluster.k8s-cluster ]
 }

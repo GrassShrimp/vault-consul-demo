@@ -35,9 +35,24 @@ resource "null_resource" "vault-ansible" {
     command = "rm cluster-keys.json"
   }
 }
-
-resource "null_resource" "vault-ingressroute" {
+resource "local_file" "vault-ingressroute" {
+  content = <<-EOF
+  apiVersion: traefik.containo.us/v1alpha1
+  kind: IngressRoute
+  metadata:
+    name: vault
+  spec:
+    entryPoints:
+    - web
+    routes:
+    - kind: Rule
+      match: HOST(`vault.${data.kubernetes_service.traefik.status.0.load_balancer.0.ingress.0.ip}.nip.io`) && (PathPrefix(`/ui`) || PathPrefix(`/v1`))
+      services:
+      - name: vault-ui
+        port: 8200
+  EOF
+  filename = "${path.root}/configs/vault-ingressroute.yaml"
   provisioner "local-exec" {
-    command = "kubectl apply -f ./vault-ingressroute.yaml -n ${helm_release.vault.namespace}"
+    command = "kubectl apply -f ${self.filename} -n ${helm_release.vault.namespace}"
   }
 }

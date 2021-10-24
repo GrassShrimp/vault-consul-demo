@@ -10,6 +10,7 @@ This is a demo for demonstrate secret management via vault with consul
 - [kubectl](https://kubernetes.io/docs/tasks/tools/install-kubectl/)
 - [kustomize](https://kubectl.docs.kubernetes.io/installation/kustomize)
 - [kind](https://kind.sigs.k8s.io/docs/user/quick-start/#installation)
+- [ansible](https://docs.ansible.com/ansible/latest/installation_guide/intro_installation.html)
 
 ## Usage
 

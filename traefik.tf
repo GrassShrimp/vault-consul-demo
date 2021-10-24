@@ -39,11 +39,32 @@ resource "helm_release" "traefik" {
 
   create_namespace = true
 
-  depends_on = [ kubernetes_config_map.metallb-config ]
+  depends_on = [ helm_release.metallb ]
 }
-
-resource "null_resource" "ingressroute-dashboard" {
+data "kubernetes_service" "traefik" {
+  metadata {
+    name = "traefik"
+    namespace = helm_release.traefik.namespace
+  }
+}
+resource "local_file" "traefik-dashboard" {
+  content = <<-EOF
+  apiVersion: traefik.containo.us/v1alpha1
+  kind: IngressRoute
+  metadata:
+    name: traefik-dashboard
+  spec:
+    entryPoints:
+    - web
+    routes:
+    - kind: Rule
+      match: HOST(`traefik.${data.kubernetes_service.traefik.status.0.load_balancer.0.ingress.0.ip}.nip.io`) && (PathPrefix(`/dashboard`) || PathPrefix(`/api`))
+      services:
+      - kind: TraefikService
+        name: api@internal
+  EOF
+  filename = "${path.root}/configs/traefik-dashboard.yaml"
   provisioner "local-exec" {
-    command = "kubectl apply -f ./traefik-dashboard.yaml -n ${helm_release.traefik.namespace}"
+    command = "kubectl apply -f ${self.filename} -n ${helm_release.traefik.namespace}"
   }
 }
